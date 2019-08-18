@@ -5,6 +5,7 @@
 #define URL_IDENTIFIER @"public.url"
 #define IMAGE_IDENTIFIER @"public.image"
 #define TEXT_IDENTIFIER (NSString *)kUTTypePlainText
+#define PDF_IDENTIFIER (NSString *)kUTTypePDF
 
 NSExtensionContext* extensionContext;
 
@@ -75,9 +76,15 @@ RCT_REMAP_METHOD(data,
         __block NSItemProvider *urlProvider = nil;
         __block NSItemProvider *imageProvider = nil;
         __block NSItemProvider *textProvider = nil;
+        __block NSItemProvider *pdfProvider = nil;
 
+        NSLog(@"%@", item);
+        NSLog(@"%@", attachments);
         [attachments enumerateObjectsUsingBlock:^(NSItemProvider *provider, NSUInteger idx, BOOL *stop) {
-            if([provider hasItemConformingToTypeIdentifier:URL_IDENTIFIER]) {
+            if ([provider hasItemConformingToTypeIdentifier:PDF_IDENTIFIER]) {
+                pdfProvider = provider;
+                *stop = YES;
+            } else if([provider hasItemConformingToTypeIdentifier:URL_IDENTIFIER]) {
                 urlProvider = provider;
                 *stop = YES;
             } else if ([provider hasItemConformingToTypeIdentifier:TEXT_IDENTIFIER]){
@@ -89,7 +96,15 @@ RCT_REMAP_METHOD(data,
             }
         }];
 
-        if(urlProvider) {
+        if (pdfProvider) {
+            [pdfProvider loadItemForTypeIdentifier:PDF_IDENTIFIER options:nil completionHandler:^(id<NSSecureCoding> item, NSError *error) {
+                NSURL *url = (NSURL *)item;
+                
+                if(callback) {
+                    callback([url absoluteString], @"file/pdf", nil);
+                }
+            }];
+        } else if (urlProvider) {
             [urlProvider loadItemForTypeIdentifier:URL_IDENTIFIER options:nil completionHandler:^(id<NSSecureCoding> item, NSError *error) {
                 NSURL *url = (NSURL *)item;
 
