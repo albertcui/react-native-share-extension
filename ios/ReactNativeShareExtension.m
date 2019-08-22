@@ -14,8 +14,8 @@ NSExtensionContext* extensionContext;
     NSString* type;
     NSString* value;
 }
-
-- (UIView*) shareView {
+// Based off: https://github.com/rbscott/react-native-share-extension/commit/e1df8f805a031fc2d8b84783781467ff2622c0f4
+- (UIView*) shareViewWithRCTBridge:(RCTBridge*)sharedBridge {
     return nil;
 }
 
@@ -28,26 +28,32 @@ RCT_EXPORT_MODULE();
     //variable extensionContext. in this way, both exported method can touch extensionContext
     extensionContext = self.extensionContext;
 
-    UIView *rootView = [self shareView];
-    if (rootView.backgroundColor == nil) {
-        rootView.backgroundColor = [[UIColor alloc] initWithRed:1 green:1 blue:1 alpha:0.1];
+    if (sharedBridge == nil) {
+        sharedBridge = [[RCTBridge alloc] initWithBundleURL:jsCodeLocation
+                                             moduleProvider:nil
+                                              launchOptions:nil];
     }
+
+     UIView *rootView = [self shareViewWithRCTBridge:sharedBridge];
 
     self.view = rootView;
 }
 
-
 RCT_EXPORT_METHOD(close) {
     [extensionContext completeRequestReturningItems:nil
                                   completionHandler:nil];
+    // Set the view to nil so it gets cleaned up.
+    self.view = nil;
+
+    [sharedBridge invalidate];
+    sharedBridge = nil;
 }
 
 
 
 RCT_EXPORT_METHOD(openURL:(NSString *)url) {
-  UIApplication *application = [UIApplication sharedApplication];
   NSURL *urlToOpen = [NSURL URLWithString:[url stringByAddingPercentEscapesUsingEncoding:NSUTF8StringEncoding]];
-  [application openURL:urlToOpen options:@{} completionHandler: nil];
+  [extensionContext openURL:urlToOpen completionHandler: nil];
 }
 
 
@@ -78,8 +84,6 @@ RCT_REMAP_METHOD(data,
         __block NSItemProvider *textProvider = nil;
         __block NSItemProvider *pdfProvider = nil;
 
-        NSLog(@"%@", item);
-        NSLog(@"%@", attachments);
         [attachments enumerateObjectsUsingBlock:^(NSItemProvider *provider, NSUInteger idx, BOOL *stop) {
             if ([provider hasItemConformingToTypeIdentifier:PDF_IDENTIFIER]) {
                 pdfProvider = provider;
